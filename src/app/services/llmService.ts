@@ -27,10 +27,15 @@ export interface LLMRecipe {
     steps?: { title: string; description: string }[];
 }
 
-const STABLE_MODELS = [
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
-    "gemini-2.0-flash-lite-preview-02-05", // 目前測試最穩定的 2.0 版本
+/**
+ * 穩定模型對照表
+ * 為了確保相容性，我們在 v1 端點使用標準名稱，在 v1beta 使用帶有版本的名稱
+ */
+const MODAL_CONFIGS = [
+    { version: "v1", name: "gemini-1.5-flash" },
+    { version: "v1", name: "gemini-1.5-flash-8b" },
+    { version: "v1beta", name: "gemini-2.0-flash-lite-preview-02-05" },
+    { version: "v1beta", name: "gemini-1.5-flash-latest" }
 ];
 
 class LLMService {
@@ -51,26 +56,36 @@ class LLMService {
     }
 
     /**
-     * 診斷測試 - 專門用來測試哪一組 Key 有問題
+     * 更新後的診斷工具 - 嘗試多重組合以確保連通
      */
     async testConnection(): Promise<{ success: boolean; message: string; model?: string }> {
         const keys = this.getAvailableKeys();
-        if (keys.length === 0) return { success: false, message: "沒有發現任何 API 金鑰" };
+        if (keys.length === 0) return { success: false, message: "沒有發現任何 API 金鑰，請在設定中添加或檢查 .env" };
 
-        const testKey = keys[0]; // 測試第一組
-        try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${testKey}`;
-            const res = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ contents: [{ parts: [{ text: "Hi" }] }] })
-            });
-            const data = await res.json();
-            if (res.ok) return { success: true, message: "連線成功！", model: "gemini-1.5-flash" };
-            return { success: false, message: `Google 回報錯誤 (${res.status}): ${data.error?.message || "未知原因"}` };
-        } catch (e: any) {
-            return { success: false, message: `網路連線異常: ${e.message}` };
+        const testKey = keys[0];
+        // 嘗試最穩定的組合
+        const testConfigs = [
+            { v: "v1", m: "gemini-1.5-flash" },
+            { v: "v1beta", m: "gemini-1.5-flash-latest" }
+        ];
+
+        let lastError = "";
+        for (const config of testConfigs) {
+            try {
+                const url = `https://generativelanguage.googleapis.com/${config.v}/models/${config.m}:generateContent?key=${testKey}`;
+                const res = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }] }] })
+                });
+                const data = await res.json();
+                if (res.ok) return { success: true, message: `連線成功！(${config.v}/${config.m})`, model: config.m };
+                lastError = data.error?.message || `狀態碼 ${res.status}`;
+            } catch (e: any) {
+                lastError = e.message;
+            }
         }
+        return { success: false, message: `診斷失敗: ${lastError}` };
     }
 
     async generateRecipes(request: LLMRecipeRequest): Promise<LLMRecipe[]> {
@@ -79,12 +94,12 @@ class LLMService {
 
         for (let k = 0; k < keys.length; k++) {
             const apiKey = this.getNextKey();
-            for (const model of STABLE_MODELS) {
+            for (const config of MODAL_CONFIGS) {
                 try {
-                    return await this.fetchFromGemini(request, model, apiKey);
+                    return await this.fetchFromGemini(request, config.name, apiKey, config.version);
                 } catch (error: any) {
-                    console.warn(`[LLM] 報錯 (${model}):`, error.message);
-                    if (k === keys.length - 1 && model === STABLE_MODELS[STABLE_MODELS.length - 1]) throw error;
+                    console.warn(`[LLM] 報錯 (${config.name}):`, error.message);
+                    if (k === keys.length - 1 && config === MODAL_CONFIGS[MODAL_CONFIGS.length - 1]) throw error;
                     continue;
                 }
             }
@@ -98,9 +113,14 @@ class LLMService {
 
         for (let k = 0; k < keys.length; k++) {
             const apiKey = this.getNextKey();
-            for (const model of ["gemini-1.5-flash", "gemini-1.5-flash-8b"]) {
+            const configs = [
+                { v: "v1", m: "gemini-1.5-flash" },
+                { v: "v1beta", m: "gemini-1.5-flash-latest" }
+            ];
+
+            for (const config of configs) {
                 try {
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                    const url = `https://generativelanguage.googleapis.com/${config.v}/models/${config.m}:generateContent?key=${apiKey}`;
                     const response = await fetch(url, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -130,16 +150,16 @@ class LLMService {
                         isSpoiled: !!r.isSpoiled
                     }));
                 } catch (e: any) {
-                    console.warn(`[Vision] Failed with ${model}:`, e.message);
+                    console.warn(`[Vision] Failed with ${config.m}:`, e.message);
                 }
             }
         }
         return [];
     }
 
-    private async fetchFromGemini(request: LLMRecipeRequest, model: string, apiKey: string): Promise<LLMRecipe[]> {
+    private async fetchFromGemini(request: LLMRecipeRequest, model: string, apiKey: string, version: string = "v1"): Promise<LLMRecipe[]> {
         const systemPrompt = `You are a cook. Based on: ${request.ingredients.join(", ")}, suggest 2 recipes in TRADITIONAL CHINESE. Return ONLY a JSON array.`;
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${apiKey}`;
         const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
