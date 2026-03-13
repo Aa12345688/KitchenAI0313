@@ -26,7 +26,22 @@ export function ProfilePage() {
         updateSettings({ customApiKeys: currentKeys.filter(k => k !== key) });
     };
 
-    const models = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash", "gpt-4o", "claude-3-5-sonnet-latest"];
+    const modelGroups = [
+        {
+            provider: "Google Gemini",
+            badge: "FREE",
+            badgeColor: "text-emerald-400 bg-emerald-400/10",
+            models: [
+                { id: "gemini-2.0-flash-lite", label: "2.0 Flash-Lite", note: "1500次/天 ⚡" },
+                { id: "gemini-2.0-flash", label: "2.0 Flash", note: "1500次/天" },
+                { id: "gemini-2.5-flash-preview-04-17", label: "2.5 Flash", note: "最新" },
+                { id: "gemini-1.5-flash", label: "1.5 Flash", note: "穩定" },
+                { id: "gemini-1.5-flash-8b", label: "1.5 Flash-8B", note: "輕量" },
+                { id: "gemini-1.5-pro", label: "1.5 Pro", note: "高品質" },
+                { id: "gemini-2.0-pro-exp", label: "2.0 Pro Exp", note: "實驗版" },
+            ]
+        },
+    ];
 
     return (
         <div className="pb-24 px-6 py-8">
@@ -202,18 +217,29 @@ export function ProfilePage() {
                             <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center"><Cpu size={18} className="text-[var(--primary)]" /></div>
                             <div>
                                 <div className="text-[10px] font-black text-white uppercase">AI 推理模型 (Neural Engine)</div>
-                                <div className="text-[8px] font-bold text-gray-500 uppercase">動態切換後端運算核心</div>
+                                <div className="text-[8px] font-bold text-gray-500 uppercase">動態切換後端運算核心 · 免費/付費標示</div>
                             </div>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                            {models.map(m => (
-                                <button 
-                                    key={m} 
-                                    onClick={() => updateSettings({ model: m })}
-                                    className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${settings.model === m ? 'bg-[var(--primary)] text-[var(--background)] border-[var(--primary)]' : 'bg-white/5 text-gray-500 border-white/10 hover:border-white/20'}`}
-                                >
-                                    {m.replace("gemini-", "").replace("gpt-", "").replace("claude-", "")}
-                                </button>
+                        <div className="space-y-4">
+                            {modelGroups.map(group => (
+                                <div key={group.provider}>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">{group.provider}</span>
+                                        <span className={`text-[7px] font-black px-1.5 py-0.5 rounded-full ${group.badgeColor}`}>{group.badge}</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {group.models.map(m => (
+                                            <button
+                                                key={m.id}
+                                                onClick={() => updateSettings({ model: m.id })}
+                                                className={`flex flex-col items-start px-3 py-2 rounded-xl transition-all border ${settings.model === m.id ? 'bg-[var(--primary)] text-[var(--background)] border-[var(--primary)]' : 'bg-white/5 text-gray-400 border-white/10 hover:border-white/20'}`}
+                                            >
+                                                <span className="text-[9px] font-black uppercase">{m.label}</span>
+                                                <span className={`text-[7px] font-bold ${settings.model === m.id ? 'opacity-70' : 'text-gray-600'}`}>{m.note}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     </div>
@@ -248,37 +274,7 @@ export function ProfilePage() {
                         </div>
                     </div>
 
-                    {/* API Usage Quota Dashboard */}
-                    <div className="pt-2 border-t border-white/5 mt-6 pt-6">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center"><Cpu size={18} className="text-green-400" /></div>
-                            <div>
-                                <div className="text-[10px] font-black text-white uppercase">API 額度監控 (Usage Quota)</div>
-                                <div className="text-[8px] font-bold text-gray-500 uppercase">今日已知成功調用次數與剩餘量</div>
-                            </div>
-                        </div>
-                        
-                        <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                            <div className="flex justify-between items-end mb-3">
-                                <div className="text-2xl font-black text-white tracking-tighter">
-                                    {Math.max(0, 1500 - (apiUsage?.count || 0))} <span className="text-[8px] font-bold text-gray-500 uppercase tracking-widest ml-1">次剩餘</span>
-                                </div>
-                                <div className="text-[8px] font-black text-gray-500 uppercase">今日已用: {apiUsage?.count || 0} / 1500</div>
-                            </div>
-                            
-                            <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                <div 
-                                    className="h-full bg-[var(--primary)] transition-all duration-1000" 
-                                    style={{ width: `${Math.min(100, ((apiUsage?.count || 0) / 1500) * 100)}%` }} 
-                                />
-                            </div>
-                            
-                            <div className="mt-3 flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                <span className="text-[7px] font-bold text-gray-500 uppercase tracking-[0.2em]">狀態：連線穩定 | 重置時間：{apiUsage?.lastReset} 00:00</span>
-                            </div>
-                        </div>
-                    </div>
+
                 </div>
             </div>
 

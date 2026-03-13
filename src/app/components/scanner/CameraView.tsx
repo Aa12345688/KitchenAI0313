@@ -25,7 +25,11 @@ export function CameraView({ videoRef }: CameraViewProps) {
     const [isCloudScanning, setIsCloudScanning] = useState(false);
     const [currentBoxes, setCurrentBoxes] = useState<any[]>([]);
     const [modelLoaded, setModelLoaded] = useState(false);
+    const [modelLoading, setModelLoading] = useState(false);
     const sessionRef = useRef<any>(null);
+
+    // 偵測是否為手機
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
     // 類別名稱對照表 (由您的新版 YOLO 權重決定)
     const CLASS_NAMES = [
@@ -34,41 +38,56 @@ export function CameraView({ videoRef }: CameraViewProps) {
         "rotten meat", "rotten orange", "rotten spinach", "spinach"
     ];
 
+    // YOLO 標籤翻譯表
+    const LABEL_DISPLAY_NAMES: { [key: string]: string } = {
+        "apple": "蘋果",
+        "banana": "香蕉",
+        "cabbage": "高麗菜",
+        "meat": "肉類",
+        "orange": "橘子",
+        "spinach": "菠菜",
+        "rotten apple": "腐爛蘋果",
+        "rotten banana": "腐爛香蕉",
+        "rotten cabbage": "腐爛高麗菜",
+        "rotten meat": "腐爛肉類",
+        "rotten orange": "腐爛橘子",
+        "rotten spinach": "腐爛菠菜"
+    };
+
     // 初始化：加載 ONNX 模型
     useEffect(() => {
         async function initModel() {
+            setModelLoading(true);
             try {
-                // 從 window 取得全域的 ort 引擎
                 const ort = window.ort;
                 if (!ort) {
-                    console.error("❌ 找不到 AI 引擎元件，請確認 index.html 是否正確引入 ort.min.js");
+                    console.error("❌ 找不到 AI 引擎元件");
                     return;
                 }
 
-                // 從環境取得基礎路徑，並加入 Version Hash 避免瀏覽器快取舊權重
                 const baseUrl = import.meta.env.BASE_URL || "/";
                 const modelUrl = `${baseUrl}best.onnx?v=${Date.now()}`;
-                
-                // 設定 ONNX Runtime WASM 零件經由 CDN 下載以確保版本一致與路徑正確
                 const cdnUrl = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/";
                 ort.env.wasm.wasmPaths = cdnUrl;
                 ort.env.wasm.numThreads = 1;
                 ort.env.wasm.proxy = false;
 
-                // 載入模型 (優先嘗試 WebGL GPU 加速)
+                // 手機使用純 WASM，桌機嘗試 WebGL + WASM
+                const providers = isMobile ? ["wasm"] : ["webgl", "wasm"];
+                console.log(`📱 載入模式: ${isMobile ? "手機 WASM" : "桌機 WebGL+WASM"} (模型大小約10MB)`);
+
                 const session = await ort.InferenceSession.create(modelUrl, {
-                    executionProviders: ["webgl", "wasm"], 
-                    graphOptimizationLevel: "all" 
+                    executionProviders: providers,
+                    graphOptimizationLevel: "all"
                 });
-                
+
                 sessionRef.current = session;
                 setModelLoaded(true);
                 console.log("✅ AI 大腦載入成功！");
             } catch (e) {
-                console.error("❌ 模型載入失敗，具體錯誤內容:", e);
-                if (e instanceof Error) {
-                    console.error("錯誤訊息:", e.message);
-                }
+                console.error("❌ 模型載入失敗:", e);
+            } finally {
+                setModelLoading(false);
             }
         }
         initModel();
@@ -196,14 +215,17 @@ export function CameraView({ videoRef }: CameraViewProps) {
                 notificationService.send("掃描完成", "未偵測到任何食材，請靠近一點或調整角度重試。");
             } else {
                 setCurrentBoxes(nmsDetections);
-                nmsDetections.forEach(det => addItem({
-                    name: det.name,
-                    quantity: 1,
-                    category: det.category,
-                    confidence: det.confidence,
-                    isSpoiled: det.isSpoiled,
-                    box: det.box
-                }));
+                nmsDetections.forEach(det => {
+                    const displayName = LABEL_DISPLAY_NAMES[det.name] || det.name;
+                    addItem({
+                        name: displayName,
+                        quantity: 1,
+                        category: det.category,
+                        confidence: det.confidence,
+                        isSpoiled: det.isSpoiled,
+                        box: det.box
+                    });
+                });
             }
 
         } finally {
@@ -261,11 +283,24 @@ export function CameraView({ videoRef }: CameraViewProps) {
     return (
         <div className="flex flex-col items-center w-full max-w-sm">
             <div className="relative w-full">
-                {/* AI Status Badge */}
-                <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 z-20 bg-[var(--background)]/80 backdrop-blur-md border ${!modelLoaded ? 'border-red-400' : isScanning ? 'border-amber-400' : 'border-[var(--primary)]'} rounded-full px-4 py-1.5 flex items-center gap-2 shadow-[0_0_15px_rgba(0,255,136,0.3)] transition-colors duration-500`}>
-                    <div className={`w-2 h-2 rounded-full ${!modelLoaded ? 'bg-red-400' : isScanning ? 'bg-amber-400 animate-pulse' : 'bg-[var(--primary)]'} shadow-[0_0_8px_currentColor]`} />
-                    <span className={`text-[10px] font-black tracking-widest ${!modelLoaded ? 'text-red-400' : isScanning ? 'text-amber-400' : 'text-[var(--primary)]'} uppercase`}>
-                        {!modelLoaded ? "系統核心啟動中..." : isScanning ? "正在為您辨識..." : "掃描系統已就緒"}
+                {/* AI Status Badge - Simplified to prevent DOM mismatch */}
+                <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 z-20 bg-[var(--background)]/80 backdrop-blur-md border rounded-full px-4 py-1.5 flex items-center gap-2 shadow-[0_0_15px_rgba(0,255,136,0.3)] transition-all duration-500 ${
+                    modelLoading ? 'border-amber-400' :
+                    !modelLoaded ? 'border-red-400' : 'border-[var(--primary)]'
+                }`}>
+                    <div className={`w-2 h-2 rounded-full ${
+                        modelLoading || isScanning ? 'bg-amber-400 animate-pulse' :
+                        !modelLoaded ? 'bg-red-400' : 'bg-[var(--primary)]'
+                    } shadow-[0_0_8px_currentColor]`} />
+                    
+                    <span className={`text-[10px] font-black tracking-widest uppercase ${
+                        modelLoading || isScanning ? 'text-amber-400' :
+                        !modelLoaded ? 'text-red-400' : 'text-[var(--primary)]'
+                    }`}>
+                        {modelLoading ? "AI 模型載入中 (10MB)..." : 
+                         !modelLoaded ? "系統核心啟動失敗" : 
+                         isScanning ? "正在為您分析鏡頭內容..." : 
+                         `掃描系統就緒 ${isMobile ? '· 手機模式' : '· 高速模式'}`}
                     </span>
                 </div>
 
@@ -297,7 +332,7 @@ export function CameraView({ videoRef }: CameraViewProps) {
                                 }}
                             >
                                 <div className={`absolute -top-6 left-0 px-2 py-0.5 rounded-t-md text-[8px] font-black uppercase whitespace-nowrap ${boxData.isSpoiled ? 'bg-red-500 text-white' : 'bg-[var(--primary)] text-[var(--background)]'}`}>
-                                    {boxData.isSpoiled ? 'BAD' : 'GOOD'} | {boxData.name} | {Math.round((boxData.confidence || 0) * 100)}%
+                                    {boxData.isSpoiled ? '不良' : '良好'} | {LABEL_DISPLAY_NAMES[boxData.name] || boxData.name} | {Math.round((boxData.confidence || 0) * 100)}%
                                 </div>
                             </div>
                         ))}
@@ -328,13 +363,14 @@ export function CameraView({ videoRef }: CameraViewProps) {
             <DetectionSummary readOnly={true} />
 
             <div className="w-full mt-8 flex flex-col gap-3 px-2">
+                {/* YOLO 掃描按鈕：桌機或手機均可用 */}
                 <button
                     onClick={handleScan}
-                    disabled={isScanning || isCloudScanning || !modelLoaded}
+                    disabled={isScanning || isCloudScanning || !modelLoaded || modelLoading}
                     className="w-full bg-[var(--card)] text-[var(--primary)] border border-[var(--primary)]/30 py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-3 hover:bg-[var(--card)]/80 transition-all active:scale-[0.98] disabled:opacity-50"
                 >
-                    {isScanning ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} strokeWidth={3} />}
-                    {isScanning ? "正在為您分析..." : "本地 YOLO 高速掃描"}
+                    {isScanning ? <Loader2 size={18} className="animate-spin" /> : modelLoading ? <Loader2 size={18} className="animate-spin text-amber-400" /> : <Camera size={18} strokeWidth={3} />}
+                    {modelLoading ? "模型載入中..." : isScanning ? "正在分析..." : `本地 YOLO ${isMobile ? '(手機 WASM)' : '高速'}掃描`}
                 </button>
 
                 <button

@@ -79,7 +79,7 @@ export const useInventoryStore = create<InventoryState>()(
                 notifications: true,
                 neuralOptimized: true,
                 confidenceThreshold: 0.25,
-                model: "gemini-2.0-flash",
+                model: "gemini-1.5-flash-8b",
                 customApiKeys: [],
                 darkMode: true,
                 dietaryPreferences: "",

@@ -6,7 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import compression from 'vite-plugin-compression'
 
 export default defineConfig({
-  base: "/ai-fridge-for-LLM/",
+  base: "/KitchenAI0313/",
   plugins: [
     // The React and Tailwind plugins are both required for Make, even if
     // Tailwind is not being actively used  do not remove them
@@ -21,7 +21,7 @@ export default defineConfig({
         short_name: 'FridgeLLM',
         description: 'AI-powered fridge management optimized for LLM integration and optimized vision performance.',
         theme_color: '#00ff88',
-        background_color: '#0f2e24',
+        background_color: '#4fa086ff',
         display: 'standalone',
         orientation: 'portrait',
         icons: [
@@ -61,10 +61,6 @@ export default defineConfig({
     target: 'esnext',
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router'],
-          'ui-vendor': ['lucide-react', 'motion'],
-        },
       },
     },
     chunkSizeWarningLimit: 1000,
