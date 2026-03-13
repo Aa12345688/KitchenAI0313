@@ -66,7 +66,7 @@ export function CameraView({ videoRef }: CameraViewProps) {
                 }
 
                 const baseUrl = import.meta.env.BASE_URL || "/";
-                const modelUrl = `${baseUrl}best.onnx?v=${Date.now()}`;
+                const modelUrl = `${baseUrl}best.onnx`; // 移除 Date.now() 讓瀏覽器快取模型
                 const cdnUrl = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/";
                 ort.env.wasm.wasmPaths = cdnUrl;
                 ort.env.wasm.numThreads = 1;
@@ -100,23 +100,23 @@ export function CameraView({ videoRef }: CameraViewProps) {
         clearTempDetections(); // 每次開始新掃描前，清空暫存清單，解決累加問題
 
         try {
-            // 1. 擷取畫面並縮放至 640x640 (YOLO 標準尺寸)
+            // 1. 擷取畫面並縮放至 320x320 (手機優化版)
             const canvas = document.createElement("canvas");
-            canvas.width = 640;
-            canvas.height = 640;
+            canvas.width = 320;
+            canvas.height = 320;
             const ctx = canvas.getContext("2d");
             if (!ctx) return;
-            ctx.drawImage(videoRef.current, 0, 0, 640, 640);
+            ctx.drawImage(videoRef.current, 0, 0, 320, 320);
 
-            // 2. 影像前處理 (Image to Tensor)
-            const imgData = ctx.getImageData(0, 0, 640, 640);
-            const input = new Float32Array(3 * 640 * 640);
-            for (let i = 0; i < 640 * 640; i++) {
+            // 2. 影像前處理 (320px 速度更快)
+            const imgData = ctx.getImageData(0, 0, 320, 320);
+            const input = new Float32Array(3 * 320 * 320);
+            for (let i = 0; i < 320 * 320; i++) {
                 input[i] = imgData.data[i * 4] / 255.0; // R
-                input[i + 640 * 640] = imgData.data[i * 4 + 1] / 255.0; // G
-                input[i + 2 * 640 * 640] = imgData.data[i * 4 + 2] / 255.0; // B
+                input[i + 320 * 320] = imgData.data[i * 4 + 1] / 255.0; // G
+                input[i + 2 * 320 * 320] = imgData.data[i * 4 + 2] / 255.0; // B
             }
-            const tensor = new window.ort.Tensor("float32", input, [1, 3, 640, 640]);
+            const tensor = new window.ort.Tensor("float32", input, [1, 3, 320, 320]);
 
             // 3. 執行推理 (Run Inference)
             const feeds = { [sessionRef.current.inputNames[0]]: tensor };
@@ -159,10 +159,10 @@ export function CameraView({ videoRef }: CameraViewProps) {
                     const w = output[isTransposed ? i * numChannels + 2 : numAnchors * 2 + i];
                     const h = output[isTransposed ? i * numChannels + 3 : numAnchors * 3 + i];
 
-                    const x1 = (cx - w / 2) / 640;
-                    const y1 = (cy - h / 2) / 640;
-                    const x2 = (cx + w / 2) / 640;
-                    const y2 = (cy + h / 2) / 640;
+                    const x1 = (cx - w / 2) / 320;
+                    const y1 = (cy - h / 2) / 320;
+                    const x2 = (cx + w / 2) / 320;
+                    const y2 = (cy + h / 2) / 320;
 
                     const name = CLASS_NAMES[classId];
                     const isSpoiled = name.toLowerCase().includes("rotten");

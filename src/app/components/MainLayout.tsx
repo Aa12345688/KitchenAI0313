@@ -8,19 +8,12 @@ import { Bell } from "lucide-react";
 /**
  * 主佈局組件 (Main Layout)
  * 這是整個應用的核心外框，所有分頁(Outlet)都會在這個佈局內被渲染。
- * 
- * 功能亮點：
- * 1. 控制全域主題：支援深色 (Dark) 與淺色 (Light) 主題切換 (雖然目前寫死深色賽博龐克為主)。
- * 2. 頁面轉場動畫：利用 `framer-motion` 在每次切換路徑 (Location.pathname) 時，產生平滑的左右滑動轉場過渡。
- * 3. 處理滑動手勢：監聽左右滑動 (`drag="x"`)，提供類原生 App 的左翻/右翻體驗。
- * 4. 系統級通知顯示：內建模擬的 `Toast` 系統，負責監聽並彈出「APP內的高能警告通知」。
  */
 export function MainLayout() {
     const location = useLocation();
     const navigate = useNavigate();
     const { settings } = useIngredients();
 
-    // ... (rest of the logic remains the same)
     const tabs = ["/", "/inventory", "/recipes", "/saved", "/profile"];
     const currentIndex = tabs.findIndex(t => t === location.pathname || (t !== '/' && location.pathname.startsWith(t)));
 
@@ -55,15 +48,13 @@ export function MainLayout() {
     }, [settings.themeColor, settings.backgroundType]);
 
     return (
-        <div 
-            className={`min-h-screen bg-black flex justify-center w-full transition-colors duration-500 ${!settings.darkMode ? 'light-theme' : ''}`}
-        >
-            {/* Global Background Grain & Tech Overlay */}
+        <div className={`min-h-screen flex justify-center w-full transition-colors duration-500`}>
+            {/* Global Background Grain Overlay */}
             <div className="fixed inset-0 pointer-events-none z-[1000] opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay" />
             
-            <div className="w-full max-w-[430px] min-h-screen bg-[var(--background)] text-white relative flex flex-col shadow-2xl overflow-hidden transition-colors duration-500">
-                {/* Subtle Scanline Effect - Optimized with simpler gradients */}
-                <div className="absolute inset-0 pointer-events-none z-[900] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%)] bg-[length:100%_4px] opacity-20" />
+            <div className="w-full max-w-[430px] min-h-screen bg-black/40 backdrop-blur-3xl text-white relative flex flex-col shadow-[0_0_100px_rgba(0,0,0,0.5)] overflow-hidden border-x border-white/5">
+                {/* Subtle Scanline Effect */}
+                <div className="absolute inset-0 pointer-events-none z-[900] bg-[linear-gradient(rgba(255,255,255,0)_50%,rgba(255,255,255,0.02)_50%)] bg-[length:100%_4px] opacity-10" />
 
                 <main className="flex-1 overflow-y-auto no-scrollbar scroll-smooth relative z-10">
                     <AnimatePresence mode="wait">
@@ -81,7 +72,6 @@ export function MainLayout() {
                                 ease: "easeOut",
                                 duration: 0.2
                             }}
-                            style={{ willChange: "transform, opacity" }}
                             className="touch-pan-y min-h-full"
                         >
                             <Outlet />
@@ -97,13 +87,12 @@ export function MainLayout() {
                             initial={{ opacity: 0, y: -50, scale: 0.9 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                            style={{ willChange: "transform, opacity" }}
-                            className="fixed top-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[380px] z-[9999] pointer-events-none"
+                            className="fixed top-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[380px] z-[9999] pointer-events-none"
                         >
-                            <div className={`bg-[var(--background)]/90 border border-white/10 rounded-3xl p-5 shadow-2xl flex items-start gap-4 ${
-                                toast.type === 'success' ? 'bg-[var(--primary)]/10 border-[var(--primary)]/30 shadow-[var(--primary)]/10' :
-                                toast.type === 'warn' ? 'bg-red-500/10 border-red-500/30 shadow-red-500/10' :
-                                'bg-blue-500/10 border-blue-500/30 shadow-blue-500/10'
+                            <div className={`glass-panel rounded-[2rem] p-5 flex items-start gap-4 border-l-4 ${
+                                toast.type === 'success' ? 'border-l-[var(--primary)] shadow-[0_10px_40px_-10px_rgba(0,255,136,0.3)]' :
+                                toast.type === 'warn' ? 'border-l-red-500 shadow-[0_10px_40px_-10px_rgba(239,68,68,0.3)]' :
+                                'border-l-blue-500 shadow-[0_10px_40px_-10px_rgba(59,130,246,0.3)]'
                             }`}>
                                 <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${
                                     toast.type === 'success' ? 'bg-[var(--primary)]/20 border-[var(--primary)]/50 text-[var(--primary)]' :

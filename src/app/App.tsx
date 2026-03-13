@@ -2,11 +2,17 @@ import { RouterProvider } from 'react-router';
 import { router } from './routes';
 import { IngredientProvider } from './services/IngredientContext';
 
-// 應用的根組件，負責引導路由配置
 export default function App() {
   return (
     <IngredientProvider>
-      <RouterProvider router={router} />
+      <div className="aurora-bg">
+        <div className="aurora-blob"></div>
+        <div className="aurora-blob"></div>
+        <div className="aurora-blob"></div>
+      </div>
+      <div className="relative z-10">
+        <RouterProvider router={router} />
+      </div>
     </IngredientProvider>
   );
 }

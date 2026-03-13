@@ -1,59 +1,102 @@
-@import './fonts.css';
-@import './tailwind.css';
-@import './theme.css';
+@import "tailwindcss";
 
-/* Light Theme Strategy using extreme CSS filters to easily contrast everything without needing to override every utility class */
-.light-theme .filter-theme {
-    filter: invert(1) hue-rotate(180deg);
+:root {
+  --primary: #00ff88;
+  --primary-glow: rgba(0, 255, 136, 0.4);
+  --secondary: #00d4ff;
+  --background: #050a09;
+  --card: rgba(18, 25, 23, 0.7);
+  --border: rgba(255, 255, 255, 0.08);
+  --glass: rgba(255, 255, 255, 0.03);
 }
 
-.light-theme .filter-theme img,
-.light-theme .filter-theme video {
-    filter: invert(1) hue-rotate(180deg);
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Scrollbar styling to maintain mobile app look on desktop */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--background);
+  color: #ffffff;
+  font-family: 'Outfit', 'Inter', -apple-system, sans-serif;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* 極致磨砂玻璃效果 */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* 霓虹發光邊框 */
+.neon-border {
+  border: 1px solid var(--primary);
+  box-shadow: 0 0 15px var(--primary-glow);
+}
+
+/* 動態極光背景 */
+.aurora-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 50%, #0a1f1a 0%, #050a09 100%);
+}
+
+.aurora-blob {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+  filter: blur(80px);
+  opacity: 0.5;
+  border-radius: 50%;
+  animation: float 20s infinite alternate cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+.aurora-blob:nth-child(2) {
+  background: radial-gradient(circle, rgba(0, 212, 255, 0.3) 0%, transparent 70%);
+  width: 800px;
+  height: 800px;
+  right: -200px;
+  top: -200px;
+  animation-delay: -5s;
+}
+
+.aurora-blob:nth-child(3) {
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%);
+  left: -200px;
+  bottom: -200px;
+  animation-delay: -10s;
+}
+
+@keyframes float {
+  0% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(100px, -50px) scale(1.1); }
+  66% { transform: translate(-50px, 100px) scale(0.9); }
+  100% { transform: translate(50px, 50px) scale(1); }
+}
+
+/* 捲動條美化 */
 ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  width: 6px;
 }
-
 ::-webkit-scrollbar-track {
-    background: transparent;
+  background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 255, 136, 0.3);
-}
-
-/* Specifically style scrollbar for .no-scrollbar class so it remains scrollable via mouse drag on desktop */
-.no-scrollbar {
-    -ms-overflow-style: auto;
-    /* IE and Edge */
-    scrollbar-width: thin;
-    /* Firefox */
-    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
-}
-
-.no-scrollbar::-webkit-scrollbar {
-    height: 3px;
-    width: 0px;
-}
-
-.no-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.no-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-}
-
-.no-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 255, 136, 0.4);
+  background: var(--primary);
 }
