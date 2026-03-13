@@ -30,11 +30,11 @@ export function MainLayout() {
 
     useEffect(() => {
         const handleNotification = (e: any) => {
-            setToast({ 
-                title: e.detail.title, 
+            setToast({
+                title: e.detail.title,
                 body: e.detail.body,
-                type: e.detail.title.includes("✨") || e.detail.title.includes("成功") ? "success" : 
-                      e.detail.title.includes("⚠") || e.detail.title.includes("異常") ? "warn" : "info"
+                type: e.detail.title.includes("✨") || e.detail.title.includes("成功") ? "success" :
+                    e.detail.title.includes("⚠") || e.detail.title.includes("異常") ? "warn" : "info"
             });
             setTimeout(() => setToast(null), 5000);
         };
@@ -51,8 +51,8 @@ export function MainLayout() {
         <div className={`min-h-screen flex justify-center w-full transition-colors duration-500`}>
             {/* Global Background Grain Overlay */}
             <div className="fixed inset-0 pointer-events-none z-[1000] opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay" />
-            
-            <div className="w-full max-w-[430px] min-h-screen bg-black/40 backdrop-blur-3xl text-white relative flex flex-col shadow-[0_0_100px_rgba(0,0,0,0.5)] overflow-hidden border-x border-white/5">
+
+            <div className="w-full max-w-[430px] min-h-screen bg-black/60 backdrop-blur-2xl text-white relative flex flex-col shadow-[0_0_100px_rgba(0,0,0,0.5)] overflow-hidden border-x border-white/5">
                 {/* Subtle Scanline Effect */}
                 <div className="absolute inset-0 pointer-events-none z-[900] bg-[linear-gradient(rgba(255,255,255,0)_50%,rgba(255,255,255,0.02)_50%)] bg-[length:100%_4px] opacity-10" />
 
@@ -67,7 +67,7 @@ export function MainLayout() {
                             initial={{ opacity: 0, x: 10 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -10 }}
-                            transition={{ 
+                            transition={{
                                 type: "tween",
                                 ease: "easeOut",
                                 duration: 0.2
@@ -89,24 +89,21 @@ export function MainLayout() {
                             exit={{ opacity: 0, y: -20, scale: 0.95 }}
                             className="fixed top-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[380px] z-[9999] pointer-events-none"
                         >
-                            <div className={`glass-panel rounded-[2rem] p-5 flex items-start gap-4 border-l-4 ${
-                                toast.type === 'success' ? 'border-l-[var(--primary)] shadow-[0_10px_40px_-10px_rgba(0,255,136,0.3)]' :
+                            <div className={`glass-panel rounded-[2rem] p-5 flex items-start gap-4 border-l-4 ${toast.type === 'success' ? 'border-l-[var(--primary)] shadow-[0_10px_40px_-10px_rgba(0,255,136,0.3)]' :
                                 toast.type === 'warn' ? 'border-l-red-500 shadow-[0_10px_40px_-10px_rgba(239,68,68,0.3)]' :
-                                'border-l-blue-500 shadow-[0_10px_40px_-10px_rgba(59,130,246,0.3)]'
-                            }`}>
-                                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${
-                                    toast.type === 'success' ? 'bg-[var(--primary)]/20 border-[var(--primary)]/50 text-[var(--primary)]' :
-                                    toast.type === 'warn' ? 'bg-red-500/20 border-red-500/50 text-red-500' :
-                                    'bg-blue-500/20 border-blue-500/50 text-blue-400'
+                                    'border-l-blue-500 shadow-[0_10px_40px_-10px_rgba(59,130,246,0.3)]'
                                 }`}>
+                                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${toast.type === 'success' ? 'bg-[var(--primary)]/20 border-[var(--primary)]/50 text-[var(--primary)]' :
+                                    toast.type === 'warn' ? 'bg-red-500/20 border-red-500/50 text-red-500' :
+                                        'bg-blue-500/20 border-blue-500/50 text-blue-400'
+                                    }`}>
                                     <Bell size={20} className="animate-bounce" />
                                 </div>
                                 <div className="flex-1">
-                                    <h4 className={`font-black text-[10px] tracking-[0.2em] uppercase mb-1.5 ${
-                                        toast.type === 'success' ? 'text-[var(--primary)]' :
+                                    <h4 className={`font-black text-[10px] tracking-[0.2em] uppercase mb-1.5 ${toast.type === 'success' ? 'text-[var(--primary)]' :
                                         toast.type === 'warn' ? 'text-red-500' :
-                                        'text-blue-400'
-                                    }`}>
+                                            'text-blue-400'
+                                        }`}>
                                         {toast.title}
                                     </h4>
                                     <p className="text-sm text-white/90 font-medium leading-tight">

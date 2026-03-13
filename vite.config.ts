@@ -14,7 +14,7 @@ export default defineConfig({
     tailwindcss(),
     compression(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['apple-icon.png', 'vite.svg'],
       manifest: {
         name: 'AI Fridge for LLM - Culinary Intelligence',

@@ -2,16 +2,20 @@ import React from "react";
 import { useNavigate } from "react-router";
 import { 
     User, Settings, AlertTriangle, Sparkles, 
-    HelpCircle, ChevronRight, LogOut, Cpu, Key, Plus, Trash2, Moon, UtensilsCrossed
+    HelpCircle, ChevronRight, LogOut, Cpu, Key, Plus, Trash2, Moon, UtensilsCrossed,
+    RefreshCw, CheckCircle2, XCircle
 } from "lucide-react";
 import { PageHeader } from "../components/Shared";
 import { useIngredients } from "../services/IngredientContext";
 import { notificationService } from "../services/notificationService";
+import { llmService } from "../services/llmService";
 
 export function ProfilePage() {
-    const { settings, updateSettings, clearAll, apiUsage } = useIngredients();
+    const { settings, updateSettings, clearAll } = useIngredients();
     const nav = useNavigate();
     const [newKey, setNewKey] = React.useState("");
+    const [isTesting, setIsTesting] = React.useState(false);
+    const [testResult, setTestResult] = React.useState<{ success: boolean; message: string } | null>(null);
 
     const addApiKey = () => {
         if (!newKey) return;
@@ -26,19 +30,30 @@ export function ProfilePage() {
         updateSettings({ customApiKeys: currentKeys.filter(k => k !== key) });
     };
 
+    const runApiTest = async () => {
+        setIsTesting(true);
+        setTestResult(null);
+        try {
+            const result = await llmService.testConnection();
+            setTestResult(result);
+        } catch (e: any) {
+            setTestResult({ success: false, message: e.message });
+        } finally {
+            setIsTesting(false);
+        }
+    };
+
     const modelGroups = [
         {
             provider: "Google Gemini",
             badge: "FREE",
             badgeColor: "text-emerald-400 bg-emerald-400/10",
             models: [
-                { id: "gemini-2.0-flash-lite", label: "2.0 Flash-Lite", note: "1500次/天 ⚡" },
-                { id: "gemini-2.0-flash", label: "2.0 Flash", note: "1500次/天" },
-                { id: "gemini-2.5-flash-preview-04-17", label: "2.5 Flash", note: "最新" },
-                { id: "gemini-1.5-flash", label: "1.5 Flash", note: "穩定" },
-                { id: "gemini-1.5-flash-8b", label: "1.5 Flash-8B", note: "輕量" },
+                { id: "gemini-1.5-flash", label: "1.5 Flash", note: "穩定首選" },
+                { id: "gemini-1.5-flash-8b", label: "1.5 Flash-8B", note: "輕量速速" },
+                { id: "gemini-2.0-flash-lite", label: "2.0 Flash-Lite", note: "1500次/天" },
+                { id: "gemini-2.0-flash", label: "2.0 Flash", note: "高效" },
                 { id: "gemini-1.5-pro", label: "1.5 Pro", note: "高品質" },
-                { id: "gemini-2.0-pro-exp", label: "2.0 Pro Exp", note: "實驗版" },
             ]
         },
     ];
@@ -64,6 +79,42 @@ export function ProfilePage() {
                 </h3>
                 
                 <div className="space-y-6">
+                    {/* Diagnostic Tool Section */}
+                    <div className="bg-white/5 border border-white/5 rounded-3xl p-5 mb-2">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-[var(--primary)]/10 flex items-center justify-center">
+                                    <Sparkles size={16} className="text-[var(--primary)]" />
+                                </div>
+                                <span className="text-[10px] font-black text-white uppercase">API 狀態診斷</span>
+                            </div>
+                            <button 
+                                onClick={runApiTest}
+                                disabled={isTesting}
+                                className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase transition-all ${isTesting ? 'bg-white/5 text-gray-500' : 'bg-[var(--primary)] text-[var(--background)] shadow-lg active:scale-95'}`}
+                            >
+                                {isTesting ? '診斷中...' : '開始測試'}
+                            </button>
+                        </div>
+                        
+                        {testResult && (
+                            <div className={`flex items-start gap-3 p-3 rounded-2xl border ${testResult.success ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
+                                {testResult.success ? <CheckCircle2 size={16} className="text-emerald-400 mt-0.5" /> : <XCircle size={16} className="text-red-400 mt-0.5" />}
+                                <div className="flex-1">
+                                    <div className={`text-[9px] font-black uppercase ${testResult.success ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        {testResult.success ? '測試成功' : '測試失敗'}
+                                    </div>
+                                    <div className="text-[10px] text-white/70 font-bold leading-tight mt-1">{testResult.message}</div>
+                                </div>
+                            </div>
+                        )}
+                        {!testResult && !isTesting && (
+                            <div className="text-[10px] text-gray-500 font-bold text-center py-2">
+                                點擊按鈕確認當前 API 金鑰是否有效
+                            </div>
+                        )}
+                    </div>
+
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center"><AlertTriangle size={18} className="text-blue-400" /></div>
@@ -100,83 +151,6 @@ export function ProfilePage() {
                         </button>
                     </div>
 
-                    {/* Theme Color Selector */}
-                    <div className="pt-2 border-t border-white/5 mt-6 pt-6">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center"><Plus size={18} className="text-[var(--primary)]" /></div>
-                            <div>
-                                <div className="text-[10px] font-black text-white uppercase">賽博主題配色 (Theme Color)</div>
-                                <div className="text-[8px] font-bold text-gray-500 uppercase">自定義環境 UI 核心色調</div>
-                            </div>
-                        </div>
-                        <div className="flex justify-between items-center bg-white/5 p-2 rounded-2xl">
-                            {[
-                                { id: 'emerald', color: '#00ff88', label: '翡翠' },
-                                { id: 'violet', color: '#a855f7', label: '紫羅蘭' },
-                                { id: 'amber', color: '#fbbf24', label: '琥珀' },
-                                { id: 'blue', color: '#3b82f6', label: '湛藍' }
-                            ].map(t => (
-                                <button 
-                                    key={t.id}
-                                    onClick={() => updateSettings({ themeColor: t.id as any })}
-                                    className={`relative w-12 h-12 rounded-xl transition-all flex flex-col items-center justify-center gap-1 ${settings.themeColor === t.id ? 'bg-white/10 scale-110 shadow-lg' : 'opacity-40 hover:opacity-100'}`}
-                                >
-                                    <div className="w-5 h-5 rounded-full shadow-lg" style={{ backgroundColor: t.color }} />
-                                    <span className="text-[7px] font-black text-white uppercase">{t.label}</span>
-                                    {settings.themeColor === t.id && <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-white animate-pulse" />}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Background Style Selector */}
-                    <div className="pt-2 border-t border-white/5 mt-6 pt-6">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center"><Moon size={18} className="text-gray-400" /></div>
-                            <div>
-                                <div className="text-[10px] font-black text-white uppercase">背景色調 (Background)</div>
-                                <div className="text-[8px] font-bold text-gray-500 uppercase">智慧環境底色切換</div>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                            {[
-                                { id: 'default', label: '預設主題', desc: 'Themed' },
-                                { id: 'midnight', label: '深夜午夜', desc: 'Midnight' },
-                                { id: 'pure', label: '曜石極黑', desc: 'Pure' }
-                            ].map(b => (
-                                <button 
-                                    key={b.id}
-                                    onClick={() => updateSettings({ backgroundType: b.id as any })}
-                                    className={`py-3 px-2 rounded-2xl transition-all border ${settings.backgroundType === b.id ? 'bg-[var(--primary)]/10 border-[var(--primary)] shadow-lg' : 'bg-white/5 border-white/5 opacity-40 hover:opacity-100'}`}
-                                >
-                                    <div className="text-[10px] font-black text-white uppercase mb-0.5">{b.label}</div>
-                                    <div className="text-[7px] font-bold text-gray-500 uppercase tracking-widest">{b.desc}</div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-white/5 mt-6 pt-6">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center"><Sparkles size={18} className="text-[var(--primary)]" /></div>
-                            <div>
-                                <div className="text-[10px] font-black text-white uppercase">AI 創意層級 (Creativity)</div>
-                                <div className="text-[8px] font-bold text-gray-500 uppercase">低：家常料理 | 高：米其林實驗料理</div>
-                            </div>
-                        </div>
-                        <div className="flex bg-white/5 p-1 rounded-2xl">
-                            {(["low", "medium", "high"] as const).map(level => (
-                                <button 
-                                    key={level}
-                                    onClick={() => updateSettings({ creativeLevel: level })}
-                                    className={`flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${settings.creativeLevel === level ? 'bg-[var(--primary)] text-[var(--background)]' : 'text-gray-500'}`}
-                                >
-                                    {level === "low" ? "傳統" : level === "medium" ? "均衡" : "創意"}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
                     <div className="pt-2 border-t border-white/5 mt-6 pt-6">
                         <div className="flex items-center gap-4 mb-4">
                             <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center"><UtensilsCrossed size={18} className="text-[var(--primary)]" /></div>
@@ -193,31 +167,12 @@ export function ProfilePage() {
                         />
                     </div>
 
-                    <div className="pt-2">
-                        <div className="flex justify-between items-center mb-4">
-                            <div>
-                                <div className="text-[10px] font-black text-white uppercase">辨識靈敏度</div>
-                                <div className="text-[8px] font-bold text-gray-500 uppercase">調整視覺辨識的嚴謹門檻</div>
-                            </div>
-                            <div className="text-xs font-black text-[var(--primary)]">{Math.round(settings.confidenceThreshold * 100)}%</div>
-                        </div>
-                        <input 
-                            type="range" 
-                            min="0.1" 
-                            max="0.9" 
-                            step="0.05" 
-                            value={settings.confidenceThreshold} 
-                            onChange={(e) => updateSettings({ confidenceThreshold: parseFloat(e.target.value) })}
-                            className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[var(--primary)]"
-                        />
-                    </div>
-
                     <div className="pt-2 border-t border-white/5 mt-6 pt-6">
                         <div className="flex items-center gap-4 mb-4">
                             <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center"><Cpu size={18} className="text-[var(--primary)]" /></div>
                             <div>
                                 <div className="text-[10px] font-black text-white uppercase">AI 推理模型 (Neural Engine)</div>
-                                <div className="text-[8px] font-bold text-gray-500 uppercase">動態切換後端運算核心 · 免費/付費標示</div>
+                                <div className="text-[8px] font-bold text-gray-500 uppercase">動態切換後端運算核心</div>
                             </div>
                         </div>
                         <div className="space-y-4">
@@ -273,25 +228,12 @@ export function ProfilePage() {
                             <button onClick={addApiKey} className="bg-[var(--primary)] text-[var(--background)] p-2 rounded-xl hover:scale-105 active:scale-95 transition-all"><Plus size={16} /></button>
                         </div>
                     </div>
-
-
                 </div>
             </div>
 
             <div className="bg-[var(--card)]/20 p-6 rounded-[2.5rem] border border-white/5 mb-8">
-                <h3 className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-6 px-1">資料與權限管理</h3>
+                <h3 className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-6 px-1">資料與權限管理 (Danger Zone)</h3>
                 <div className="space-y-4">
-                    <button onClick={() => nav("/saved")} className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all text-left">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-amber-400/10 flex items-center justify-center"><HelpCircle size={18} className="text-amber-400" /></div>
-                            <div>
-                                <div className="text-[10px] font-black text-white uppercase">查看食材耗損分析</div>
-                                <div className="text-[8px] font-bold text-gray-500 uppercase">分析您過去的食材利用效率</div>
-                            </div>
-                        </div>
-                        <ChevronRight size={16} className="text-gray-600" />
-                    </button>
-
                     <button 
                         onClick={() => {
                             if (window.confirm("確定要清空所有存儲的食材數據嗎？")) {
@@ -313,7 +255,7 @@ export function ProfilePage() {
             </div>
 
             <div className="text-center">
-                <div className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">VERSION 1.0.0 LITE / NEURAL CORE v2</div>
+                <div className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">VERSION 1.0.0 STABLE / NEURAL CORE v2.1</div>
             </div>
         </div>
     );

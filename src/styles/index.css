@@ -25,13 +25,13 @@ body {
   min-height: 100vh;
 }
 
-/* 極致磨砂玻璃效果 */
+/* 優化後的磨砂玻璃效果，減輕手機 GPU 負擔 */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
 }
 
 /* 霓虹發光邊框 */
@@ -40,7 +40,7 @@ body {
   box-shadow: 0 0 15px var(--primary-glow);
 }
 
-/* 動態極光背景 */
+/* 基本背景，手機不使用動態光球以節省記憶體 */
 .aurora-bg {
   position: fixed;
   top: 0;
@@ -48,19 +48,21 @@ body {
   width: 100vw;
   height: 100vh;
   z-index: -1;
-  overflow: hidden;
-  background: radial-gradient(circle at 50% 50%, #0a1f1a 0%, #050a09 100%);
+  background: radial-gradient(circle at 50% 10%, #0d2d24 0%, #050a09 100%);
 }
 
-.aurora-blob {
-  position: absolute;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
-  filter: blur(80px);
-  opacity: 0.5;
-  border-radius: 50%;
-  animation: float 20s infinite alternate cubic-bezier(0.45, 0, 0.55, 1);
+/* 僅在桌機或高效能模式顯示光球 */
+@media (min-width: 768px) {
+  .aurora-blob {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+    filter: blur(80px);
+    opacity: 0.3;
+    border-radius: 50%;
+    animation: float 30s infinite alternate ease-in-out;
+  }
 }
 
 .aurora-blob:nth-child(2) {

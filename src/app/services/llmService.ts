@@ -27,25 +27,17 @@ export interface LLMRecipe {
     steps?: { title: string; description: string }[];
 }
 
-// 免費模型降級鏈：當主模型失敗時依序嘗試
-const FREE_MODEL_CHAIN = [
-    "gemini-1.5-flash-8b",
+const STABLE_MODELS = [
     "gemini-1.5-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-2.0-flash",
+    "gemini-1.5-flash-8b",
+    "gemini-2.0-flash-lite-preview-02-05", // 目前測試最穩定的 2.0 版本
 ];
 
 class LLMService {
     private keyIndex = 0;
 
-    private getModelFallbackChain(primaryModel: string): string[] {
-        const chainIdx = FREE_MODEL_CHAIN.indexOf(primaryModel);
-        if (chainIdx >= 0) return FREE_MODEL_CHAIN.slice(chainIdx);
-        return [primaryModel, ...FREE_MODEL_CHAIN];
-    }
-
     private getAvailableKeys(): string[] {
-        const envKeys = (import.meta.env.VITE_LLM_API_KEYS || import.meta.env.VITE_LLM_API_KEY || "").split(",").filter(Boolean);
+        const envKeys = (import.meta.env.VITE_LLM_API_KEY || "").split(",").map((k: string) => k.trim()).filter(Boolean);
         const userKeys = useInventoryStore.getState().settings.customApiKeys || [];
         return Array.from(new Set([...envKeys, ...userKeys]));
     }
@@ -59,68 +51,56 @@ class LLMService {
     }
 
     /**
-     * 生成食譜 - 自動模型降級
+     * 診斷測試 - 專門用來測試哪一組 Key 有問題
      */
-    async generateRecipes(request: LLMRecipeRequest): Promise<LLMRecipe[]> {
-        const { model: selectedModel } = useInventoryStore.getState().settings;
-        const primaryModel = request.model || selectedModel || "gemini-1.5-flash-8b";
-        const modelChain = this.getModelFallbackChain(primaryModel);
+    async testConnection(): Promise<{ success: boolean; message: string; model?: string }> {
         const keys = this.getAvailableKeys();
+        if (keys.length === 0) return { success: false, message: "沒有發現任何 API 金鑰" };
 
-        for (const model of modelChain) {
-            const maxRetries = Math.max(1, keys.length);
-            let modelFailed = false;
-
-            for (let i = 0; i < maxRetries; i++) {
-                const apiKey = this.getNextKey();
-                if (!apiKey) break;
-
-                try {
-                    console.log(`[LLM] 嘗試模型: ${model} (Key ${i + 1}/${maxRetries})`);
-                    return await this.fetchFromGemini(request, model, apiKey);
-                } catch (error: any) {
-                    console.warn(`[LLM] 失敗 (${model}, Key ${i + 1}):`, error.message);
-                    if (error.message.includes("429") || error.message.includes("quota") || error.message.includes("403") || error.message.includes("400")) {
-                        if (i === maxRetries - 1) modelFailed = true;
-                        continue;
-                    }
-                    modelFailed = true;
-                    break;
-                }
-            }
-
-            if (modelFailed) console.warn(`[LLM] 模型 ${model} 失敗，降級...`);
+        const testKey = keys[0]; // 測試第一組
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${testKey}`;
+            const res = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contents: [{ parts: [{ text: "Hi" }] }] })
+            });
+            const data = await res.json();
+            if (res.ok) return { success: true, message: "連線成功！", model: "gemini-1.5-flash" };
+            return { success: false, message: `Google 回報錯誤 (${res.status}): ${data.error?.message || "未知原因"}` };
+        } catch (e: any) {
+            return { success: false, message: `網路連線異常: ${e.message}` };
         }
-
-        throw new Error("❌ 所有模型均已達限，請稍候再試或更換 API 金鑰。");
     }
 
-    /**
-     * 食材影像辨識 - 自動模型降級
-     */
-    async detectIngredients(imageBase64: string): Promise<LLMDetectionResponse[]> {
-        const { model: selectedModel } = useInventoryStore.getState().settings;
-        const primaryModel = selectedModel.includes("flash") ? selectedModel : "gemini-1.5-flash-8b";
-        const modelChain = this.getModelFallbackChain(primaryModel);
+    async generateRecipes(request: LLMRecipeRequest): Promise<LLMRecipe[]> {
         const keys = this.getAvailableKeys();
+        if (keys.length === 0) throw new Error("尚未設定 API 金鑰");
 
-        const prompt = `Identify ingredients in this picture for a smart fridge app. 
-        For each fruit, vegetable or meat, return its name, category (fruit, vegetable, meat, other), 
-        and whether it looks spoiled (isSpoiled: true/false). 
-        Return ONLY a JSON array of objects: [{"name": string, "category": string, "isSpoiled": boolean, "confidence": number}].
-        Limit to the top 10 items.`;
+        for (let k = 0; k < keys.length; k++) {
+            const apiKey = this.getNextKey();
+            for (const model of STABLE_MODELS) {
+                try {
+                    return await this.fetchFromGemini(request, model, apiKey);
+                } catch (error: any) {
+                    console.warn(`[LLM] 報錯 (${model}):`, error.message);
+                    if (k === keys.length - 1 && model === STABLE_MODELS[STABLE_MODELS.length - 1]) throw error;
+                    continue;
+                }
+            }
+        }
+        throw new Error("API 調用失敗");
+    }
 
-        for (const model of modelChain) {
-            const maxRetries = Math.max(1, keys.length);
+    async detectIngredients(imageBase64: string): Promise<LLMDetectionResponse[]> {
+        const keys = this.getAvailableKeys();
+        const prompt = `Identify ingredients. Return ONLY JSON array: [{"name": string, "category": string, "isSpoiled": boolean, "confidence": number}].`;
 
-            for (let i = 0; i < maxRetries; i++) {
-                const apiKey = this.getNextKey();
-                if (!apiKey) break;
-
+        for (let k = 0; k < keys.length; k++) {
+            const apiKey = this.getNextKey();
+            for (const model of ["gemini-1.5-flash", "gemini-1.5-flash-8b"]) {
                 try {
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-                    console.log(`[Vision] 嘗試模型: ${model} (Key ${i+1})`);
-
                     const response = await fetch(url, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -134,10 +114,11 @@ class LLMService {
                         })
                     });
 
-                    if (!response.ok) throw new Error(`Gemini API Error: ${response.status}`);
+                    if (!response.ok) {
+                        const errData = await response.json();
+                        throw new Error(errData.error?.message || response.status);
+                    }
                     const data = await response.json();
-                    useInventoryStore.getState().recordApiUsage();
-
                     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
                     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
                     const results = JSON.parse(cleanJson);
@@ -148,52 +129,36 @@ class LLMService {
                         category: r.category === "fruit" ? "水果" : r.category === "vegetable" ? "蔬菜" : r.category === "meat" ? "肉類" : "其他",
                         isSpoiled: !!r.isSpoiled
                     }));
-                } catch (error: any) {
-                    console.warn(`[Vision] 失敗 (${model}):`, error.message);
-                    if (error.message.includes("403") || error.message.includes("429") || error.message.includes("400")) continue;
-                    break;
+                } catch (e: any) {
+                    console.warn(`[Vision] Failed with ${model}:`, e.message);
                 }
             }
         }
-
         return [];
     }
 
     private async fetchFromGemini(request: LLMRecipeRequest, model: string, apiKey: string): Promise<LLMRecipe[]> {
-        const { creativeLevel } = useInventoryStore.getState().settings;
-        const systemPrompt = `You are a practical home cook and nutritionist. 
-        Focus on TRADITIONAL, FEASIBLE, and DAILY recipes. 
-        Creativity level: ${creativeLevel === "high" || request.preferences?.includes("創意") ? "high" : "low"}.
-        Based on these ingredients: ${request.ingredients.join(", ")}, 
-        and dietary preferences: ${request.preferences || "None"},
-        suggest 2 REALISTIC recipes that a normal person can cook at home.
-        Return ONLY a JSON array of 2 recipe objects in TRADITIONAL CHINESE.
-        Structure: {"id":"r1","name":"菜名","time":"20 MIN","difficulty":"easy","category":"mixed","requiredIngredients":["item"],"description":"描述","matchScore":85,"steps":[{"title":"步驟","description":"做法"}]}`;
-
+        const systemPrompt = `You are a cook. Based on: ${request.ingredients.join(", ")}, suggest 2 recipes in TRADITIONAL CHINESE. Return ONLY a JSON array.`;
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
         const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: systemPrompt }] }]
-            })
+            body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt }] }] })
         });
 
-        if (!response.ok) throw new Error(`Gemini API Error: ${response.status}`);
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error?.message || response.status);
+        }
         const data = await response.json();
-        useInventoryStore.getState().recordApiUsage();
-
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
         const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
         const recipes = JSON.parse(cleanJson);
 
         return (Array.isArray(recipes) ? recipes : []).map((r: any) => ({
             ...r,
-            id: r.id || `recipe-${Date.now()}-${Math.random()}`,
-            image: getRecipeImage(r.name || "", r.requiredIngredients || request.ingredients, r.category || "mixed"),
-            difficulty: r.difficulty?.toLowerCase() || "medium",
-            category: r.category || "mixed",
-            requiredIngredients: r.requiredIngredients || request.ingredients,
+            id: r.id || `r-${Math.random()}`,
+            image: getRecipeImage(r.name || "", r.requiredIngredients || [], r.category || "mixed"),
             matchScore: r.matchScore || 85,
             steps: r.steps || []
         }));

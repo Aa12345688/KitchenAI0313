@@ -56,41 +56,43 @@ export function CameraView({ videoRef }: CameraViewProps) {
 
     // 初始化：加載 ONNX 模型
     useEffect(() => {
+        let isMounted = true;
         async function initModel() {
+            if (sessionRef.current || modelLoading) return;
+            
             setModelLoading(true);
             try {
                 const ort = window.ort;
-                if (!ort) {
-                    console.error("❌ 找不到 AI 引擎元件");
-                    return;
-                }
+                if (!ort) return;
 
                 const baseUrl = import.meta.env.BASE_URL || "/";
-                const modelUrl = `${baseUrl}best.onnx`; // 移除 Date.now() 讓瀏覽器快取模型
+                const modelUrl = `${baseUrl}best.onnx`;
+                
                 const cdnUrl = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/";
                 ort.env.wasm.wasmPaths = cdnUrl;
                 ort.env.wasm.numThreads = 1;
                 ort.env.wasm.proxy = false;
 
-                // 手機使用純 WASM，桌機嘗試 WebGL + WASM
                 const providers = isMobile ? ["wasm"] : ["webgl", "wasm"];
-                console.log(`📱 載入模式: ${isMobile ? "手機 WASM" : "桌機 WebGL+WASM"} (模型大小約10MB)`);
-
+                
                 const session = await ort.InferenceSession.create(modelUrl, {
                     executionProviders: providers,
                     graphOptimizationLevel: "all"
                 });
 
-                sessionRef.current = session;
-                setModelLoaded(true);
-                console.log("✅ AI 大腦載入成功！");
+                if (isMounted) {
+                    sessionRef.current = session;
+                    setModelLoaded(true);
+                    console.log("✅ AI 大腦載入成功！");
+                }
             } catch (e) {
                 console.error("❌ 模型載入失敗:", e);
             } finally {
-                setModelLoading(false);
+                if (isMounted) setModelLoading(false);
             }
         }
         initModel();
+        return () => { isMounted = false; };
     }, []);
 
     const handleScan = async () => {
